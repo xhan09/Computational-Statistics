@@ -1,6 +1,6 @@
 ---
-title: "STAT545 Fall2018 HW3"
-author: "Xusi Han"
+title: "K-means clustering"
+author: "xhan09"
 output:
   pdf_document: 
     latex_engine: xelatex
