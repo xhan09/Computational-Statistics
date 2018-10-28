@@ -1,6 +1,6 @@
 ---
-title: "STAT545 Exam Makeup: Dynamic Programming for Matrix Chain Multiplication"
-author: "Xusi Han"
+title: "Dynamic Programming for Matrix Chain Multiplication"
+author: "xhan09"
 output:
   pdf_document: 
     latex_engine: xelatex
