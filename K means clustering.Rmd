@@ -1,0 +1,223 @@
+---
+title: "STAT545 Fall2018 HW3"
+author: "Xusi Han"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1: The K-means algorithm
+
+### 1.1 Following is the code that reads in first 1000 training images and their labels. Images are stored in "digits", and labels are stored in "labels".
+
+```{r}
+load_mnist <- function() {
+  load_image_file <- function(filename) {
+    ret = list()
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    ret$n = readBin(f,'integer',n=1,size=4,endian='big')
+    nrow = readBin(f,'integer',n=1,size=4,endian='big')
+    ncol = readBin(f,'integer',n=1,size=4,endian='big')
+    x = readBin(f,'integer',n=ret$n*nrow*ncol,size=1,signed=F)
+    ret$x = matrix(x, ncol=nrow*ncol, byrow=T)
+    close(f)
+    ret
+  }
+  load_label_file <- function(filename) {
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    n = readBin(f,'integer',n=1,size=4,endian='big')
+    y = readBin(f,'integer',n=n,size=1,signed=F)
+    close(f)
+    y
+  }
+  train <<- load_image_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-images-idx3-ubyte')
+  train$y <<- load_label_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-labels-idx1-ubyte')
+}
+
+show_digit <- function(arr784, col=gray(12:1/12), ...) {
+  image(matrix(arr784, nrow=28)[,28:1], col=col, ...)
+}
+
+load_mnist()
+digits <- train$x[1:1000,]
+dim(digits)
+labels <- train$y[1:1000]
+length(labels)
+dataset <- rbind(digits[labels == 2], digits[labels == 3])
+```
+
+### 1.2 Following is my R code for function my_kmeans.
+
+```{r}
+library(pdist)
+my_kmeans <- function(digits, K, N) {
+  total_image_num <- dim(digits)[1]
+  image_size <- dim(digits)[2]
+  threshold <- 0.1
+  maxIter <- 100
+  loss_seq <- c() # best loss in each initialization
+  best_cluster_assign <- c() # best cluster assignment
+  best_cluster_center <- c() # best cluster center
+  best_loss <- Inf # loss for best cluster assignment
+  best_loss_seq <- c() # sequence of loss function for best solution
+
+  # run the clustering N times
+  for (i in 1:N) {
+    # run k-means clustering
+    label <- c()
+    # randomly pick K images as cluster center
+    set.seed(20 + i)
+    cluster_center <- sample(1:total_image_num, K)
+    cluster_center_matrix <- digits[cluster_center, ]
+    
+    # first assign observations to random cluster
+    for (image in 1:total_image_num) {
+      image_vector <- digits[image,]
+      dist_matrix <- as.matrix(pdist(image_vector, cluster_center_matrix))
+      label[image] <- which.min(dist_matrix)
+    }
+    
+    # calculate means of each cluster
+    cur_loss <- 0
+    cur_loss_seq <- c()
+    cluster_center_matrix_update <- matrix(NA, nrow = K, ncol = image_size)
+    for (center_index in 1:K) {
+      image_in_cluster <- which(label == center_index)
+      
+      # deal with empty cluster
+      if (length(image_in_cluster) == 0) {
+        new_cluster_center <- digits[sample(1:total_image_num, 1), ]
+      } else if (length(image_in_cluster) == 1) {
+        new_cluster_center <- digits[image_in_cluster,]
+      } else {
+        new_cluster_center <- colMeans(digits[image_in_cluster,])
+      }
+      
+      cluster_center_matrix_update[center_index, ] <- new_cluster_center
+      
+      if (length(image_in_cluster) > 1) {
+        cur_loss <- cur_loss + sum(as.matrix(pdist(new_cluster_center, digits[image_in_cluster, ])))
+      }
+    }
+    
+    cur_loss_seq <- c(cur_loss_seq, cur_loss)
+    
+    # update cluster until change in loss is < 0.1 or iter_count > 100
+    old_loss <- Inf
+    new_loss <- cur_loss
+    iter_count <- 1
+    while ((old_loss - new_loss >= threshold) & iter_count <= maxIter) {
+      # assign observations to cluster
+      for (image in 1:total_image_num) {
+        image_vector <- digits[image,]
+        dist_matrix <- as.matrix(pdist(image_vector, cluster_center_matrix_update))
+        label[image] <- which.min(dist_matrix)
+      }
+      
+      # calculate means of each cluster
+      cur_loss <- 0
+      cluster_center_matrix_update <- matrix(NA, nrow = K, ncol = image_size)
+      for (center_index in 1:K) {
+        image_in_cluster <- which(label == center_index)
+        
+        # deal with empty cluster
+       if (length(image_in_cluster) == 1) {
+          new_cluster_center <- digits[image_in_cluster,]
+        } else {
+          new_cluster_center <- colMeans(digits[image_in_cluster,])
+        }
+        
+        cluster_center_matrix_update[center_index, ] <- new_cluster_center
+        if (length(image_in_cluster) > 1) {
+          cur_loss <- cur_loss + sum(as.matrix(pdist(new_cluster_center, digits[image_in_cluster, ])))
+        }
+        iter_count <- iter_count + 1
+      }
+      cur_loss_seq <- c(cur_loss_seq, cur_loss)
+      old_loss <- new_loss
+      new_loss <- cur_loss
+    }
+    
+    loss_seq <- c(loss_seq, new_loss)
+    # update best solution
+    if (new_loss < best_loss) {
+      best_loss <- new_loss
+      best_loss_seq <- cur_loss_seq
+      best_cluster_assign <- label
+      best_cluster_center <- cluster_center_matrix_update
+    }
+  }
+  return_result <- list(best_assign_center = best_cluster_center, best_assign = best_cluster_assign, best_assign_loss_seq = best_loss_seq, loss_total = loss_seq)
+  return(return_result)
+}
+```
+### 1.3 The second loop is stopped if the the difference in loss function value is smaller than 0.1 or the number of iterations is larger than 100. 
+
+### 1.4 and 1.5 I have run my_kmeans for K = 5, 10, 20 and N = 20. Following are the plots for cluster means, evolution of the loss-function for the best solution, and distribution of terminal loss function values for each setting of K.
+
+### Following are the plots for K = 5.
+```{r, fig.height = 5, fig.width = 5, fig.align = 'center'}
+library(ggplot2)
+par(mfrow=c(3,2))
+par(mar =c(2,2,2,2))
+par(pin=c(2, 1))
+K1 <- my_kmeans(digits, 5, 20)
+show_digit(K1$best_assign_center[1,])
+show_digit(K1$best_assign_center[2,])
+show_digit(K1$best_assign_center[3,])
+show_digit(K1$best_assign_center[4,])
+show_digit(K1$best_assign_center[5,])
+
+plot(K1$best_assign_loss_seq, ylab = 'Loss Function Value', main = 'Best Solution Loss_Seq with K=5')
+```
+
+```{r, fig.height = 3, fig.width = 3, fig.align = "center"}
+d = data.frame(Nlossvalue = K1$loss_total) 
+ggplot(d, aes(Nlossvalue)) + geom_density()
+```
+
+### Following are the plots for K = 10.
+```{r, fig.height = 8, fig.width = 8, fig.align = 'center'}
+par(mfrow=c(4,3))
+par(mar =c(2,2,2,2))
+par(pin=c(2, 1))
+K2 <- my_kmeans(digits, 10, 20)
+for (i in 1:10) {
+  show_digit(K2$best_assign_center[i,])
+}
+
+plot(K2$best_assign_loss_seq, ylab = 'Loss Function Value', main = 'Best Solution Loss_Seq with K=10')
+```
+
+```{r, fig.height = 3, fig.width = 3, fig.align = "center"}
+d = data.frame(Nlossvalue = K2$loss_total) 
+ggplot(d, aes(Nlossvalue)) + geom_density()
+```
+
+### Following are the plots for K = 20.
+```{r, fig.height = 14, fig.width = 8, fig.align = 'center'}
+par(mfrow=c(7,3))
+par(mar =c(2,2,2,2))
+par(pin=c(2, 1))
+K3 <- my_kmeans(digits, 20, 20)
+for (i in 1:20) {
+  show_digit(K3$best_assign_center[i,])
+}
+
+plot(K3$best_assign_loss_seq, ylab = 'Loss Function Value', main = 'Best Solution Loss_Seq with K=20')
+```
+
+```{r, fig.height = 3, fig.width = 3, fig.align = "center"}
+d = data.frame(Nlossvalue = K3$loss_total) 
+ggplot(d, aes(Nlossvalue)) + geom_density()
+```
+
+### 1.6 We can use the elbow method to determine the number of clusters in k-means clustering, where k should be the point at which the loss function value decreases abruptly. In the elbow method, we will plot loss function value versus k, and identify the point where the change in loss function value starts to become smaller.
+
