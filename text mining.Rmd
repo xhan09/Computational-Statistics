@@ -1,0 +1,171 @@
+---
+title: "Text Mining"
+author: "xhan09"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 4, fig.align = 'center')
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+## Problem 1: A little text-mining
+
+### 1.1 The location of the directory that contains text files is stored in "cname". There are two text files in this folder: "nyt1.txt" and "nyt2.txt".
+
+```{r}
+cname <- file.path("/Users/", "txt")
+cname
+dir(cname)
+```
+
+### 1.2 Load the "tm" library,  and read the two text files into R using the Corpus function. Save it as variable 'corpus'.
+
+```{r}
+library(tm)
+library(NLP)
+corpus <- Corpus(DirSource(cname))
+corpus
+```
+
+### 1.3 The type of variable corpus is "list". The single bracket [] extracts a sublist of indexed elements, while the double bracket [[]] extracts a single element.
+
+```{r}
+typeof(corpus)
+corpus
+corpus[1]
+corpus[[1]]
+```
+
+### 1.4 The first transformation I have done is to replace "/" and "@" with a white space, in order to avoid the two words being run into one string of characters. The second transforamtion I have done is to convert all characters to lowercase, as we don't want to differntiate between uppercase and lowercase characters when we count the frequency of each word. I have also removed numbers and English stop words, as we only want to count the frequency of words in each document. Finally, I have stripped white spaces, as we want to remove extra white space.
+
+```{r}
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+corpus <- tm_map(corpus, toSpace, "/")
+corpus <- tm_map(corpus, toSpace, "@")
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, stripWhitespace)
+```
+
+### 1.5 I have created a document-term matrix and put it into variable dtm. The dimension of dtm is 2 x 1125. I have inspected how often word 100 and 102 occur in each document. We can see that "day" occurs 3 times in nyt1.txt and twice in nyt2.txt, while "death" occurs once in both nyt1.txt and nyt2.txt.
+
+``` {r}
+dtm <- DocumentTermMatrix(corpus)
+dtm
+dim(dtm)
+inspect(dtm[c(1,2), c(100,102)])
+```
+
+### 1.6 The frequency across all documents are stored in the variable freq. The relative word frequency in nyt1.txt and nyt2.txt are stored in the variable freq1 and freq2, respectively. 
+
+``` {r}
+dtmmat <- as.matrix(dtm)
+freq <- sort(colSums(dtmmat), decreasing = TRUE)
+freq1 <- sort(dtmmat[1,], decreasing = TRUE)
+freq2 <- sort(dtmmat[2,], decreasing = TRUE)
+```
+
+The frequency histogram of the top 15 words across all documents is shown below. 
+```{r}
+wf <- data.frame(word=names(freq), freq=freq)
+library(ggplot2)
+ggplot(data=head(wf, 15), aes(word,freq)) + geom_bar(stat='identity') + theme(axis.text.x=element_text(angle=45, hjust=1)) + ggtitle("Top 15 Words Across All Documents")
+```
+
+The frequency histogram of the top 15 words in the first document is shown below. 
+```{r}
+wf1 <- data.frame(word=names(freq1), freq=freq1)
+ggplot(data=head(wf1, 15), aes(word,freq)) + geom_bar(stat='identity') + theme(axis.text.x=element_text(angle=45, hjust=1)) + ggtitle("Top 15 Words Across in the First Document")
+```
+
+The frequency histogram of the top 15 words in the second document is shown below. 
+```{r}
+wf2 <- data.frame(word=names(freq2), freq=freq2)
+ggplot(data=head(wf2, 15), aes(word,freq)) + geom_bar(stat='identity') + theme(axis.text.x=element_text(angle=45, hjust=1)) + ggtitle("Top 15 Words Across in the Second Document")
+```
+### 1.7 The wordclouds for all documents as well as each document are shown below. As we can see from the figures, the most frequent words in all documents are "bannon", "mccain", "think", "senate", "really", "trump", etc. The first New York Times article "nyt1.txt" is about John McCain funeral plans. Most frequent words in that article are "mccain", "senate", "life", "five", "issues", "times", etc. The second New York Times article "nyt2.txt" is about the devil in Steve Bannon. Most frequent words in that article are "bannon", "think", "really", "trump", "one", "right", etc. 
+
+```{r}
+library(RColorBrewer)
+library(wordcloud)
+set.seed(400)
+wordcloud(names(freq), freq, max.words=400, scale = c(2, .2), colors=brewer.pal(6, "Dark2"), rot.per = 0.2)
+wordcloud(names(freq1), freq1, max.words=400, scale = c(2, .2), colors=brewer.pal(6, "Dark2"), rot.per = 0.2)
+wordcloud(names(freq2), freq2, max.words=400, scale = c(2, .2), colors=brewer.pal(6, "Dark2"), rot.per = 0.2)
+```
+
+## Problem 2: Checking the central limit theorem
+
+### 2.1 I have written the function my_CLT to return m variables, each of which is a scaled sum of n random variables.
+```{r}
+my_CLT <- function(n ,m) {
+  nrandom <- runif(n*m, min = -1, max = 1)
+  nmatrix <- matrix(nrandom, nrow = m)/sqrt(n/3)
+  rowsum <- rowSums(nmatrix)
+  return(rowsum)
+}
+```
+
+### 2.2 The following plot shows the density for n = 1, 2, 3, 5, 10, 15 and 20. As we increase n, the density of m gets closer and closer to standard normal distribution.
+
+``` {r}
+library(lattice)
+pd <- data.frame(dens = c(my_CLT(1, 10000), my_CLT(2, 10000), my_CLT(3, 10000), my_CLT(5, 10000), my_CLT(10, 10000), my_CLT(15, 10000), my_CLT(20, 10000)), lines = rep(c(1, 2, 3, 5, 10, 15, 20), each=10000))
+densityplot(~dens,data=pd,groups = lines,
+            plot.points = FALSE, ref = TRUE, 
+            auto.key = list(space = "right"), lwd=2)
+```
+
+## Problem 3: Permutation test 
+
+### 3.1 The difference in the average response times of the two groups is -0.25156.
+
+```{r}
+library(plyr)
+rtime <- data.frame(read.table("/Users/xusihan/Documents/stat 545/fall 2018/homework/hw1/reaction_times.txt", header = TRUE, sep = ','))
+ddply(rtime,~UserGroup,summarise,mean=mean(ReactionTime))
+1.03047-1.28203
+```
+
+### 3.2 Here I have randomly swapped the value between two groups of users.  
+
+```{r}
+library(dplyr)
+rlist <- runif(100, min = 0, max = 1)
+for (i in 1:100) {
+  if (rlist[i] > 0.5) {
+    tmp <- rtime$ReactionTime[i]
+    rtime$ReactionTime[i] <- rtime$ReactionTime[i+100]
+    rtime$ReactionTime[i+100] <- tmp
+  }
+}
+tmptable <- ddply(rtime,~UserGroup,summarise,mean=mean(ReactionTime))
+tmptable$mean[1] - tmptable$mean[2]
+```
+
+### As shown above, This time the mean difference between two groups has become `r tmptable$mean[1] - tmptable$mean[2]`.
+
+### 3.3 I have repeated the step in 3.2 1000 times. As shown in the histogram below, p(diff = -0.25 | randomization) = 0.01 < 0.05. So we reject the null hypothesis and conclude that there is a group difference between these two groups.
+
+``` {r}
+diff <- vector()
+for (i in 1:1000) {
+  rlist <- runif(100, min = 0, max = 1)
+  for (i in 1:100) {
+    if (rlist[i] > 0.5) {
+      tmp <- rtime$ReactionTime[i]
+      rtime$ReactionTime[i] <- rtime$ReactionTime[i+100]
+      rtime$ReactionTime[i+100] <- tmp
+    }
+  }
+  tmptable <- ddply(rtime,~UserGroup,summarise,mean=mean(ReactionTime))
+  diff <- c(diff, tmptable$mean[1] - tmptable$mean[2])
+}
+hist(diff, main = 'Histogram of Differences')
+```
