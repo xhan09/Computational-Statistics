@@ -1,6 +1,6 @@
 ---
-title: "STAT545 Fall2018 HW4"
-author: "Xusi Han"
+title: "EM Algorithm for Image Clustering"
+author: "xhan09"
 output:
   pdf_document: 
     latex_engine: xelatex
