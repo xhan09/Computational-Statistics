@@ -1,0 +1,171 @@
+---
+title: "STAT545 Fall2018 HW4"
+author: "Xusi Han"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 2: EM for mixture of Bernoulli vectors
+
+### 2.1 Following is the code to create a subset of twos and threes and threhold the images to be binary.
+
+```{r}
+load_mnist <- function() {
+  load_image_file <- function(filename) {
+    ret = list()
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    ret$n = readBin(f,'integer',n=1,size=4,endian='big')
+    nrow = readBin(f,'integer',n=1,size=4,endian='big')
+    ncol = readBin(f,'integer',n=1,size=4,endian='big')
+    x = readBin(f,'integer',n=ret$n*nrow*ncol,size=1,signed=F)
+    ret$x = matrix(x, ncol=nrow*ncol, byrow=T)
+    close(f)
+    ret
+  }
+  load_label_file <- function(filename) {
+    f = file(filename,'rb')
+    readBin(f,'integer',n=1,size=4,endian='big')
+    n = readBin(f,'integer',n=1,size=4,endian='big')
+    y = readBin(f,'integer',n=n,size=1,signed=F)
+    close(f)
+    y
+  }
+  train <<- load_image_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-images-idx3-ubyte')
+  train$y <<- load_label_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-labels-idx1-ubyte')
+}
+
+show_digit <- function(arr784, col=gray(12:1/12), ...) {
+  image(matrix(arr784, nrow=28)[,28:1], col=col, ...)
+}
+
+load_mnist()
+digits <- train$x[1:1000,]
+dim(digits)
+labels <- train$y[1:1000]
+length(labels)
+
+# pick a subset of only twos and threes
+dataset <- rbind(digits[labels == 2, ], digits[labels == 3, ])
+dim(dataset)
+# convert dataset to binary using 3 as threshold
+dataset <- ifelse(dataset < 3, 0, 1)
+```
+
+### 2.7 Following are the codes to maximize F w.r.t q and ($\pi, \mu$).
+
+```{r}
+# calculate log(f_ij given mu)
+log_fij <- function(x, j, mu) {
+  x <- as.vector(x)
+  mu <- as.vector(mu[,j])
+  mu[x == 0] <- 1 - mu[x == 0]
+  nz <- mu > 0
+  log_prob <- sum(log(mu[nz]))
+  return(log_prob)
+}
+
+# calcualte q_ij given image and K
+qij <- function(x, pi, mu, K) {
+  q <- rep(0, K)
+  for (c_index in 1:K) {
+    q[c_index] <- log(pi[c_index]) + log_fij(x, c_index, mu) 
+  }
+  
+  a <- max(q)
+  q <- exp(q - a)
+  q <- q/sum(q)
+  return(q)
+}
+
+maxF <- function(K, dataset) {
+  set.seed(12)
+  i <- 2
+  total_image <- dim(dataset)[1]
+  pi <- rep(1/K, K)
+  mu <- matrix(runif(K * 784, 0.001, 0.999),nrow = 784)
+  F <- c(-1e10, -1e10 + 1)
+  Q <- matrix(rep(0, total_image*K), nrow=total_image)
+  
+  while(abs(F[i] - F[i-1]) >= 1e-6) {
+    # update q_ij
+    for (j in 1:total_image) {
+      Q[j, ] <- qij(dataset[j,], pi, mu, K)
+    }
+        
+    # update pi and mu
+    pi <- colSums(Q)/total_image
+    for (c_index in 1:K) {
+      mu[,c_index] <- colSums(dataset * Q[,c_index])/sum(Q[,c_index])
+    }
+
+    i <- i + 1
+    
+    # calculate q_ij*log(f(x_i|mu_j))
+    s <- rep(0, total_image)
+    for (image_index in 1:total_image) {
+      for (c_index in 1:K) {
+        s[image_index] <- s[image_index] + Q[image_index, c_index] * log_fij(dataset[image_index,], c_index, mu)
+      }
+    }
+    
+    # set logQ to 0 when Q is close to 0
+    nz_index <- Q > 0
+    Hq <- -sum(Q[nz_index]*log(Q[nz_index]))
+
+    F[i] <- colSums(Q) %*% log(pi) + sum(s) + Hq
+  }
+  return(list(F=F[3:length(F)], Q=Q, pi=pi, mu=mu))
+}
+```
+
+### 2.8 Following are the plots and final parameter values for K=2 and K=3. The unit of F is same as the unit of the entropy, which is joules per kelvin (J/K).
+
+Results for K=2 are shown below.
+
+```{r, fig.height = 3, fig.width = 3, fig.align = "center"}
+result_k2 <- maxF(2, dataset)
+tail(result_k2$F, 1) # final value of F
+result_k2$pi # final value of pi
+
+library(ggplot2) 
+d2 = data.frame(x = 1:length(result_k2$F), F=result_k2$F) 
+ggplot(data=d2, aes(x=x, y=F)) + geom_line() + ggtitle("Evolution of F")
+
+show_digit(result_k2$mu[,1])
+show_digit(result_k2$mu[,2])
+```
+
+Results for K=3 are shown below.
+
+```{r, fig.height = 3, fig.width = 3, fig.align = "center"}
+result_k3 <- maxF(3, dataset)
+tail(result_k3$F, 1) # final value of F
+result_k3$pi # final value of pi
+
+d3 = data.frame(x = 1:length(result_k3$F), F=result_k3$F) 
+ggplot(data=d3, aes(x=x, y=F)) + geom_line() + ggtitle("Evolution of F")
+
+show_digit(result_k3$mu[,1])
+show_digit(result_k3$mu[,2])
+show_digit(result_k3$mu[,3])
+```
+
+### 2.9 The entropy of each digit is shown below. The digit with the largest entropy is also plotted.
+
+```{r, fig.height = 3, fig.width = 3, fig.align = "center"}
+Q <- result_k2$Q
+logQ <- ifelse(is.finite(log(Q)), log(Q), 0) 
+Hq <- -rowSums(Q*logQ)
+Hq
+
+image_index <- which(Hq == max(Hq))
+show_digit(dataset[image_index[1], ])
+```
+
