@@ -37,8 +37,8 @@ load_mnist <- function() {
     close(f)
     y
   }
-  train <<- load_image_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-images-idx3-ubyte')
-  train$y <<- load_label_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-labels-idx1-ubyte')
+  train <<- load_image_file('/Users/train-images-idx3-ubyte')
+  train$y <<- load_label_file('/Users/train-labels-idx1-ubyte')
 }
 
 show_digit <- function(arr784, col=gray(12:1/12), ...) {
@@ -219,5 +219,4 @@ d = data.frame(Nlossvalue = K3$loss_total)
 ggplot(d, aes(Nlossvalue)) + geom_density()
 ```
 
-### 1.6 We can use the elbow method to determine the number of clusters in k-means clustering, where k should be the point at which the loss function value decreases abruptly. In the elbow method, we will plot loss function value versus k, and identify the point where the change in loss function value starts to become smaller.
 
