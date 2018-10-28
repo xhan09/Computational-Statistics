@@ -37,8 +37,8 @@ load_mnist <- function() {
     close(f)
     y
   }
-  train <<- load_image_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-images-idx3-ubyte')
-  train$y <<- load_label_file('/Users/xusihan/Documents/stat\ 545/fall\ 2018/homework/hw3/train-labels-idx1-ubyte')
+  train <<- load_image_file('/Users/hw3/train-images-idx3-ubyte')
+  train$y <<- load_label_file('/Users/train-labels-idx1-ubyte')
 }
 
 show_digit <- function(arr784, col=gray(12:1/12), ...) {
