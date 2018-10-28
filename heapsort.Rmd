@@ -1,0 +1,120 @@
+---
+title: "Heapsort"
+author: "xhan09"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 4, fig.align = 'center')
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+## Problem 2: Implementing priority queues and sorting
+
+###2.1 The index of the parent node of element i is (i/2). The indices of the left and right child nodes if element i are 2i and (2i+1), respectively.
+
+### 2.2 Following is the function make_heap to return an empty heap with length LMAX.
+
+```{r}
+make_heap <- function(LMAX) {
+  heap <- rep(0, LMAX)
+  return(heap)
+}
+```
+
+### 2.3 Following is the function max_heap to return the maximum element of the heap.
+
+```{r}
+max_heap <- function(heap) {
+  return(heap[1])
+}
+max_heap(c(9,8,7,4,1,1,3,2,2))
+```
+
+### 2.4 Following is the function remove_max to remove the maximum element of the heap.
+
+```{r}
+remove_max <- function(heap) {
+  len <- length(heap)
+  max_val <- heap[1]
+  last_val <- heap[len]
+  newheap <- heap[-len]
+  newheap[1] <- last_val
+  
+  i <- 1
+  while (2*i <= length(newheap)) {
+    left_child <- newheap[2*i]
+    right_child <- newheap[2*i + 1]
+    child_list <- c(left_child, right_child)
+    child_list <- child_list[!is.na(child_list)]
+    
+    if (newheap[i] >= max(child_list)) {break}
+    
+    if (is.na(right_child) || left_child >= right_child) {
+      newheap[2*i] <- newheap[i]
+      newheap[i] <- left_child
+      i <- 2*i
+    }
+    else {
+      newheap[2*i + 1] <- newheap[i]
+      newheap[i] <- right_child
+      i <- 2*i + 1
+    }
+  }
+  return(list(V=max_val, H=newheap))
+}
+remove_max(c(9,8,7,4,1,1,3,2,2))
+```
+
+### 2.4 Following is the function insert_element to insert a new element into the heap.
+
+```{r}
+insert_element <- function(heap, new_element) {
+  if (identical(which(heap != 0), integer(0))) {newindex <- 1}
+  else {newindex <- max(which(heap != 0)) + 1}
+  heap[newindex] <- new_element
+  
+  i <- newindex
+  while (floor(i/2) >= 1) {
+    parent_node = floor(i/2)
+    if (heap[i] > heap[parent_node]) {
+      tmp <- heap[parent_node]
+      heap[parent_node] <- heap[i]
+      heap[i] <- tmp
+      i <- parent_node
+    } else {break}
+  }
+  return(heap)
+}
+insert_element(c(8,4,7,2,1,1,3,2,0), 9)
+```
+
+### 2.5 Following is the function heap_sort to sort a vector of numbers using the functions defined above.
+
+```{r}
+heap_sort <- function(input) {
+  LMAX <- length(input)
+  prevheap <- make_heap(LMAX)
+  
+  for (i in 1:LMAX) {
+    curheap <- insert_element(prevheap, input[i])
+    prevheap <- curheap
+  }
+
+  newvector <- rep(0, LMAX)
+  for (i in 1:LMAX) {
+    tmp <- remove_max(prevheap)
+    newvector[i] <- tmp$V
+    prevheap <- tmp$H
+  }
+  return(newvector)
+}
+
+inheap <- sample(1:100, 20)
+inheap
+heap_sort(inheap)
+```

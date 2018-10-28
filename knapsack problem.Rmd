@@ -1,0 +1,55 @@
+---
+title: "Knapsack Problem: Dynamic Programming"
+author: "xhan09"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 4, fig.align = 'center')
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+## Problem 3: The knapsack problem
+
+### 3.1 Following is the function "knapsack" that takes in vectors w and v and scalar W_knapsack and returns a scalar V_knapsack and a vector obj_count.
+
+```{r}
+knapsack <- function(w, v, W_knapsack){
+  val <- rep(0, W_knapsack+1)
+  
+  # find the maximum value for each weight
+  for (i in (w[1]+1):length(val)) {
+    tmp_val <- rep(0, length(w))
+    for (j in 1:length(w)) {
+      if ((i - w[j]) >= 1) {tmp_val[j] <- val[i - w[j]] + v[j]}
+    }
+    val[i] <- max(tmp_val)
+  }
+  
+  # count the number of each item
+  count_vec <- rep(0, length(w))
+  total_w <- W_knapsack + 1
+  while (total_w > 1) {
+    for (j in 1:length(w)) {
+      if (((total_w - w[j]) >= 1) & (val[total_w - w[j]] + v[j] == val[total_w])) {
+        count_vec[j] <- count_vec[j] + 1
+        total_w <- total_w - w[j]
+        break
+      }
+    }
+  }
+  return(list(V_Knapsack = val[W_knapsack+1], obj_count = count_vec)) 
+}
+```
+
+### 3.2 Test the knapsack function. 
+
+```{r}
+w <- c(1,2,3,4,5,6)
+v <- c(1, 8, 10, 10, 19, 25)
+knapsack(w, v, 25)
+```
