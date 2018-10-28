@@ -1,0 +1,77 @@
+---
+title: "STAT545 Exam Makeup: Dynamic Programming for Matrix Chain Multiplication"
+author: "Xusi Han"
+output:
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# print optimal parenthesization of the matrix product 
+# A[start] * A[start+1] * ... * A[end]
+print_order <- function(s, start, end) {
+  if (start == end) {
+    cat('A[', start, ']', sep='')
+    return()
+  }
+  
+  k = s[start, end]
+  
+  cat('(', sep='')
+  print_order(s, start, k)
+  print_order(s, k+1, end)
+  cat(')', sep='')
+}
+
+matrix_multiply <- function(N, dim) {
+  if (length(dim) != N + 1) {
+    print('Length of dim does not match the total number of matrices')
+    return()
+  }
+  
+  # forward pass to find the minimal cost
+  cmatrix <- matrix(rep(0, N*N), nrow = N) # initialize cost matrix
+  omatrix <- matrix(rep(0, N*N), nrow = N) # initialize optimal order matrix
+  
+  for (L in 2:N) {
+    for (i in 1:(N-L+1)) {
+      j = i + L -1
+      cmatrix[i, j] = .Machine$integer.max
+      
+      for (k in i:(j-1)) {
+        cost <- cmatrix[i, k] + cmatrix[k+1, j] + dim[i]*dim[k+1]*dim[j+1]
+        if (cost < cmatrix[i, j]) {
+          cmatrix[i, j] <- cost
+          omatrix[i, j] <- k
+        }
+      }
+    }
+  }
+  
+  # minimum number of multiplication
+  min_cost <- cmatrix[1, N]
+  cat('Minimum number of multiplications is:', min_cost, '\n')
+
+  # backward pass to find the optimal path
+  print_order(omatrix, 1, N)
+  cat('\n')
+}
+
+arr = c(1, 2, 3 ,4) 
+size = length(arr) - 1
+matrix_multiply(size, arr)
+
+arr = c(10, 100, 5, 50) 
+size = length(arr) - 1
+matrix_multiply(size, arr)
+
+arr = c(5, 10, 8, 15, 20, 4) 
+size = length(arr) - 1
+matrix_multiply(size, arr)
+
+```
